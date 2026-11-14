@@ -218,6 +218,15 @@ const translations = {
   'Each Ukrainian word must have 1 to 200 characters': 'Українське слово має містити від 1 до 200 символів.',
   'Each English meaning must have 1 to 300 characters': 'Англійське значення має містити від 1 до 300 символів.',
   'The word could not be saved': 'Не вдалося зберегти слово.',
+  'Record pronunciation': 'Записати вимову',
+  'Stop recording': 'Зупинити запис',
+  'Audio recording is not supported in this browser.': 'Цей браузер не підтримує запис аудіо.',
+  'Allow microphone access to record audio.': 'Дозволь доступ до мікрофона, щоб записати аудіо.',
+  'Recording…': 'Запис…',
+  'New recording ready. Save the word to replace its audio.': 'Новий запис готовий. Збережи слово, щоб замінити аудіо.',
+  'The previous audio file could not be removed.': 'Не вдалося видалити попередній аудіофайл.',
+  'Audio saved.': 'Аудіо збережено.',
+  'Existing audio stays until you save a new recording.': 'Поточне аудіо залишиться, доки ти не збережеш новий запис.',
   'The file does not contain valid JSON.': 'JSON-файл має містити коректний JSON.',
   'The database does not save the code itself. Copy it now.': 'База даних не зберігає сам код. Скопіюй його зараз.',
   'You finished this set. Your progress is saved.': 'Ти завершив цей набір. Твій прогрес збережено.',
@@ -265,6 +274,12 @@ let wordPickerRequest = 0
 let wordPickerItems = []
 let wordPickerTimer = 0
 let wordPickerSelected = new Set()
+let audioRecorder = null
+let audioStream = null
+let audioChunks = []
+let recordedAudioBlob = null
+let recordedAudioUrl = ''
+let audioRecordingCancelled = false
 let language = localStorage.getItem('slovo-language') === 'uk' ? 'uk' : 'en'
 
 function languageToggle() {
@@ -587,7 +602,125 @@ function openModal(title, subtitle, body, wide = false) {
 }
 
 function wordForm(word = {}) {
-  openModal(word.id ? 'Edit word' : 'Add a word', 'Add Ukrainian text and an English meaning.', `<form class="form" data-form="word" data-id="${esc(word.id || '')}"><div class="field"><label for="word-ua">Ukrainian word</label><input id="word-ua" name="ua" required value="${esc(word.ua || '')}"></div><div class="field"><label for="word-en">English meaning</label><input id="word-en" name="en" required value="${esc(word.en || '')}"></div><div class="field"><label for="word-example">Example sentence</label><textarea id="word-example" name="example">${esc(word.example || '')}</textarea></div><div class="field"><label for="word-audio">Audio file path or URL</label><input id="word-audio" name="audioPath" value="${esc(word.audioPath || '')}" placeholder="Optional"></div><div class="form-actions"><button type="button" class="button secondary" data-action="close-modal">Cancel</button><button class="button" type="submit">Save word</button></div></form>`)
+  disposeAudioRecorder()
+  openModal(word.id ? 'Edit word' : 'Add a word', 'Add Ukrainian text and an English meaning.', `<form class="form" data-form="word" data-id="${esc(word.id || '')}"><div class="field"><label for="word-ua">Ukrainian word</label><input id="word-ua" name="ua" required value="${esc(word.ua || '')}"></div><div class="field"><label for="word-en">English meaning</label><input id="word-en" name="en" required value="${esc(word.en || '')}"></div><div class="field"><label for="word-example">Example sentence</label><textarea id="word-example" name="example">${esc(word.example || '')}</textarea></div><div class="field"><label>Pronunciation audio</label><div class="audio-recorder"><div class="toolbar"><button type="button" class="button secondary" data-action="record-audio">Record pronunciation</button><button type="button" class="button secondary" data-action="stop-audio" disabled>Stop recording</button></div><span class="field-hint" data-audio-status>${word.audioPath ? 'Existing audio stays until you save a new recording.' : ''}</span><audio class="audio-preview" controls hidden></audio></div></div><div class="field"><label for="word-audio">Audio file path or URL</label><input id="word-audio" name="audioPath" value="${esc(word.audioPath || '')}" placeholder="Optional"></div><div class="form-actions"><button type="button" class="button secondary" data-action="close-modal">Cancel</button><button class="button" type="submit">Save word</button></div></form>`)
+}
+
+function disposeAudioRecorder() {
+  audioRecordingCancelled = true
+  if (audioRecorder && audioRecorder.state !== 'inactive') {
+    audioRecorder.stop()
+  }
+  audioRecorder = null
+  audioStream?.getTracks().forEach(track => track.stop())
+  audioStream = null
+  audioChunks = []
+  recordedAudioBlob = null
+  if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl)
+  recordedAudioUrl = ''
+}
+
+async function startAudioRecording() {
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    showToast('Audio recording is not supported in this browser.')
+    return
+  }
+
+  disposeAudioRecorder()
+  audioRecordingCancelled = false
+  const form = app.querySelector('[data-form="word"]')
+  const recordButton = form?.querySelector('[data-action="record-audio"]')
+  const stopButton = form?.querySelector('[data-action="stop-audio"]')
+  const status = form?.querySelector('[data-audio-status]')
+  if (!form || !recordButton || !stopButton) return
+
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    if (audioRecordingCancelled || app.querySelector('[data-form="word"]') !== form) {
+      audioStream.getTracks().forEach(track => track.stop())
+      audioStream = null
+      return
+    }
+    const supportedTypes = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4']
+    const mimeType = supportedTypes.find(type => MediaRecorder.isTypeSupported(type))
+    audioRecorder = mimeType ? new MediaRecorder(audioStream, { mimeType }) : new MediaRecorder(audioStream)
+    const recorder = audioRecorder
+    audioChunks = []
+    recorder.addEventListener('dataavailable', event => {
+      if (event.data.size) audioChunks.push(event.data)
+    })
+    recorder.addEventListener('stop', () => {
+      audioStream?.getTracks().forEach(track => track.stop())
+      audioStream = null
+      if (audioRecordingCancelled || audioRecorder !== recorder) return
+      const baseType = (recorder.mimeType || audioChunks[0]?.type || 'audio/webm').split(';')[0]
+      recordedAudioBlob = new Blob(audioChunks, { type: baseType })
+      if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl)
+      recordedAudioUrl = URL.createObjectURL(recordedAudioBlob)
+      const preview = app.querySelector('.audio-preview')
+      const currentStatus = app.querySelector('[data-audio-status]')
+      const currentRecordButton = app.querySelector('[data-action="record-audio"]')
+      const currentStopButton = app.querySelector('[data-action="stop-audio"]')
+      if (preview) {
+        preview.src = recordedAudioUrl
+        preview.hidden = false
+      }
+      if (currentStatus) currentStatus.textContent = 'New recording ready. Save the word to replace its audio.'
+      if (currentRecordButton) currentRecordButton.disabled = false
+      if (currentStopButton) currentStopButton.disabled = true
+      const saveButton = app.querySelector('[data-form="word"] button[type="submit"]')
+      if (saveButton) saveButton.disabled = false
+      audioRecorder = null
+    })
+    recorder.addEventListener('error', () => {
+      showToast('Allow microphone access to record audio.')
+      if (recordButton) recordButton.disabled = false
+      if (stopButton) stopButton.disabled = true
+      const saveButton = app.querySelector('[data-form="word"] button[type="submit"]')
+      if (saveButton) saveButton.disabled = false
+    })
+    audioRecorder.start()
+    recordButton.disabled = true
+    stopButton.disabled = false
+    const saveButton = form.querySelector('button[type="submit"]')
+    if (saveButton) saveButton.disabled = true
+    if (status) status.textContent = 'Recording…'
+  } catch {
+    audioStream?.getTracks().forEach(track => track.stop())
+    audioStream = null
+    audioRecorder = null
+    showToast('Allow microphone access to record audio.')
+    recordButton.disabled = false
+    stopButton.disabled = true
+    const saveButton = form.querySelector('button[type="submit"]')
+    if (saveButton) saveButton.disabled = false
+  }
+}
+
+function stopAudioRecording() {
+  if (audioRecorder?.state === 'recording') {
+    audioRecorder.stop()
+    const stopButton = app.querySelector('[data-action="stop-audio"]')
+    if (stopButton) stopButton.disabled = true
+  }
+}
+
+function recordedAudioExtension() {
+  const type = recordedAudioBlob?.type || ''
+  if (type.includes('ogg')) return 'ogg'
+  if (type.includes('mp4')) return 'm4a'
+  if (type.includes('mpeg')) return 'mp3'
+  if (type.includes('wav')) return 'wav'
+  return 'webm'
+}
+
+async function uploadRecordedAudio(wordId) {
+  const extension = recordedAudioExtension()
+  const path = `words/${wordId}/${crypto.randomUUID()}.${extension}`
+  const contentType = recordedAudioBlob.type || 'audio/webm'
+  const { error } = await supabase.storage.from('word-audio').upload(path, recordedAudioBlob, { upsert: true, contentType })
+  if (error) throw error
+  return path
 }
 
 function wordPickerResults() {
@@ -761,6 +894,8 @@ async function reloadData() {
 
 async function handleAction(action, element, event) {
   const id = element.dataset.id
+  if (action === 'record-audio') await startAudioRecording()
+  if (action === 'stop-audio') stopAudioRecording()
   if (action === 'toggle-language') {
     language = language === 'en' ? 'uk' : 'en'
     localStorage.setItem('slovo-language', language)
@@ -815,10 +950,12 @@ async function handleAction(action, element, event) {
     showToast(suspended ? 'Student access restored.' : 'Student access suspended.')
   }
   if (action === 'close-modal') {
+    disposeAudioRecorder()
     modal = null
     render()
   }
   if (action === 'backdrop' && element === event.target) {
+    disposeAudioRecorder()
     modal = null
     render()
   }
@@ -982,15 +1119,36 @@ app.addEventListener('submit', async event => {
     }
     if (kind === 'word') {
       const id = form.dataset.id
+      const previousAudioPath = id ? data.words.find(word => word.id === id)?.audioPath : null
+      const audioBlob = recordedAudioBlob
       const payload = { ukrainian: values.get('ua').trim(), english: values.get('en').trim(), example_ukrainian: values.get('example').trim() || null, audio_path: values.get('audioPath').trim() || null }
-      const query = id
-        ? supabase.from('words').update(payload).eq('id', id)
-        : supabase.from('words').insert({ ...payload, created_by: profile.user_id })
-      const { error } = await query
-      if (error) throw error
+      let wordId = id
+      let uploadedAudioPath = null
+      if (!wordId) {
+        const { data: created, error } = await supabase.from('words').insert({ ...payload, created_by: profile.user_id }).select('id').single()
+        if (error) throw error
+        wordId = created.id
+      }
+      try {
+        if (audioBlob) {
+          uploadedAudioPath = await uploadRecordedAudio(wordId)
+          payload.audio_path = uploadedAudioPath
+        }
+        const { error } = await supabase.from('words').update(payload).eq('id', wordId)
+        if (error) throw error
+      } catch (error) {
+        if (uploadedAudioPath) await supabase.storage.from('word-audio').remove([uploadedAudioPath])
+        if (!id) await supabase.from('words').delete().eq('id', wordId)
+        throw error
+      }
+      if (previousAudioPath && previousAudioPath !== payload.audio_path && !/^https?:\/\//i.test(previousAudioPath)) {
+        const { error } = await supabase.storage.from('word-audio').remove([previousAudioPath])
+        if (error) showToast('The previous audio file could not be removed.')
+      }
+      disposeAudioRecorder()
       modal = null
       await reloadData()
-      showToast('Word saved.')
+      showToast(audioBlob ? 'Audio saved.' : 'Word saved.')
     }
     if (kind === 'pack') {
       const id = form.dataset.id

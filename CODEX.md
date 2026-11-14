@@ -57,6 +57,8 @@ The admin can:
 - Give a code to one student.
 - See whether the student used the code.
 - Add, edit, and remove Ukrainian-English word entries.
+- Record pronunciation audio for each word.
+- Replace a word's pronunciation audio. Remove the old stored audio after the new audio saves.
 - Create and edit flashcard packs.
 - Add words to a pack.
 - Assign a pack to one or more students.
@@ -94,8 +96,11 @@ Invite codes must be hard to guess. Each code must have an expiry date and a use
 
 1. The admin adds a word with its Ukrainian text and English meaning.
 2. The admin can add an example sentence and audio.
-3. The admin creates a pack and adds words to it.
-4. The admin assigns the pack to students.
+3. Only an active admin can record or replace audio. Supabase Storage policies must enforce this rule.
+4. Store audio in the private `word-audio` bucket. Let active students read audio only for words in their assigned packs.
+5. Use a unique storage path for each new recording. Update the word row first. Then remove its previous storage file. Keep the previous file if the database update fails.
+6. The admin creates a pack and adds words to it.
+7. The admin assigns the pack to students.
 
 The admin can import a pack from a JSON file. The file has a `title`, an optional `description`, an optional `level`, and a `words` list. Each word has `ukrainian` and `english` text. Each word may have `example_ukrainian` and `audio_path` values. Reuse a word when its Ukrainian text and English meaning already exist. Add each word to the new pack in file order. Ignore repeated words in the same file after the first item.
 
