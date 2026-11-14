@@ -79,15 +79,14 @@ A student can:
 
 ### Student access
 
-1. The admin creates an invite code for a student.
-2. The admin sends the code to the student outside the site.
-3. The student opens the site and enters the code.
-4. The site checks the code with Supabase.
-5. The student signs in with Google.
-6. Supabase links the approved invite to the student's Google account.
-7. The student sees the assigned packs.
+1. The admin creates a one-use invite code.
+2. The admin adds a label and an optional note to identify the intended student.
+3. The admin sends the code to the student outside the site.
+4. The student enters the code and signs in with any Google account.
+5. Supabase checks the code and links it to the signed-in account.
+6. The student sees the assigned packs.
 
-Invite codes must be hard to guess. Each code must have an expiry date and a use limit. For the first version, each code should work for one student and one use. The site must not grant access from a code check in the browser alone. A Supabase function must validate and redeem the code.
+Invite codes must be hard to guess. Each code must have an expiry date and a use limit. Each code must work for one account and one use. The label and note help the admin identify the intended student. Do not bind the code to an email address. A database function must validate and redeem the code. The database must store a hash of the code. Show the code to the admin only once.
 
 ### Word and pack management
 
@@ -144,7 +143,7 @@ If no audio file exists, the site may use browser text-to-speech as a fallback. 
 Use these tables in Supabase:
 
 - `profiles`: one row per signed-in user; store the user ID and role.
-- `invites`: store a hashed invite code, expiry time, use state, and the student email if known.
+- `invites`: store a hashed invite code, role, expiry time, redemption state, learner label, and optional admin note.
 - `words`: store Ukrainian text, English meaning, optional example text, and optional audio path.
 - `packs`: store a title, description, and creator ID.
 - `pack_words`: connect words to packs and store their order.
@@ -161,9 +160,9 @@ Use Supabase Auth user IDs as user IDs in these tables. Add created and updated 
 - Allow a student to add or update only their own progress.
 - Do not allow a student to change their role.
 - Do not put the Supabase service role key in the site code or in a public environment variable.
-- Use a Supabase Edge Function for invite creation or redemption when a privileged action is needed.
+- Use protected database functions for invite creation and redemption.
 - Store only the information needed to provide the service. Do not collect student data that the site does not need.
-- Restrict sign-in to the intended Google accounts after invite redemption.
+- Allow app data access only for Google accounts with an approved profile.
 
 GitHub Pages serves public files. It cannot protect secrets or enforce access. Supabase must enforce all data access rules.
 
@@ -175,7 +174,7 @@ GitHub Pages serves public files. It cannot protect secrets or enforce access. S
 - Use Supabase Postgres for app data.
 - Use Supabase Storage for audio files.
 - Use Supabase Row Level Security for data access.
-- Use Supabase Edge Functions for invite actions that need trusted server logic.
+- Use protected Postgres functions for invite creation and redemption.
 - Keep the Supabase project URL and anon key in the public site configuration. These values are public. Protect data with Row Level Security.
 - Add the GitHub Pages site URL to the Supabase Auth redirect allow list.
 - Configure Google OAuth in Google Cloud and Supabase before launch.
@@ -227,19 +226,19 @@ Pick the web framework and build tool before implementation. Keep the tool set s
 ## Decisions to keep simple
 
 - Use one admin role and one student role.
-- Use invite codes before Google sign-in. Do not support open registration.
-- Use one-use invite codes. Bind each redeemed code to one Google account.
+- Require an invite code for each new account. Allow an existing approved account to sign in without a new code.
+- Use one-use invite codes. Do not bind a code to an email address.
 - Use one word list that the admin can reuse in many packs.
 - Track progress by student and word. This keeps progress when a word appears in more than one pack.
 - Use audio files as the preferred pronunciation source.
 - Keep the first version focused on assigned packs and simple progress.
 
-## Questions to resolve before implementation
+## Initial admin setup
 
-- Does the admin know each student's Google email before making an invite?
-- Should an invite code be tied to a known email, or should the first student to redeem it claim it?
-- Should the admin upload audio files, or should the first version use browser speech only?
-- Should students see the English side first in a later review mode?
-- What data retention rules apply to student accounts?
-
-Use these defaults until the admin decides otherwise: ask for the student's email when creating an invite, use uploaded audio when available, and allow browser speech as a fallback.
+- Do not insert sample users, words, packs, assignments, or invites in a migration.
+- Let the admin create the first admin invite by hand in the Supabase SQL Editor.
+- Make the first invite a one-use admin invite.
+- Let the first user who redeems that invite become the admin.
+- Allow later admin-created invite codes to create student accounts only.
+- Use an optional learner label and note to help the admin identify each invite.
+- Do not ask the admin for a learner email when the admin creates a code.

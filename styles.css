@@ -228,6 +228,25 @@ td strong { color: var(--ink); font-weight: 700; }
 .mobile-menu { display: none; }
 .mobile-user { display: none; }
 
+.auth-page { display: grid; min-height: 100vh; place-items: center; padding: 28px 16px; background: radial-gradient(circle at 18% 15%, #eaf0ff 0, transparent 30%), radial-gradient(circle at 90% 82%, #e4f5ec 0, transparent 28%), var(--canvas); }
+.auth-card { width: min(440px, 100%); padding: 30px; border: 1px solid var(--line); border-radius: 18px; background: white; box-shadow: var(--shadow); }
+.auth-brand { margin-bottom: 35px; padding: 0; }
+.auth-card h1 { margin: 0 0 9px; font-size: 28px; }
+.auth-card > .subhead { margin-bottom: 22px; }
+.auth-card .form { margin-top: 22px; }
+.auth-card .form > .button { width: 100%; min-height: 46px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 19px 0; color: #a0a6b2; font-size: 10px; }
+.auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: var(--line); content: ''; }
+.auth-google { width: 100%; min-height: 44px; }
+.auth-foot { margin: 17px 0 0; color: #9298a6; font-size: 10px; line-height: 1.6; text-align: center; }
+.loading-card { display: grid; justify-items: center; gap: 15px; color: var(--muted); font-size: 12px; }
+.loading-card p { margin: 0; }
+.alert-box { margin: 15px 0; padding: 12px 13px; border: 1px solid #f0d5ce; border-radius: 10px; background: #fff5f2; color: #a85c48; font-size: 11px; line-height: 1.5; }
+.invite-code-display { padding: 18px; border: 1px solid #e7ebf4; border-radius: 12px; background: #f7f8fc; text-align: center; }
+.invite-code-display strong { font-family: Manrope, sans-serif; font-size: 25px; letter-spacing: 2px; }
+.invite-code-display p { margin: 7px 0 0; color: #7d8595; font-size: 11px; }
+.logout-button { width: 100%; min-height: 34px; margin-top: 12px; font-size: 10px; }
+
 @media (max-width: 1050px) {
   .sidebar { width: 220px; }
   .main { margin-left: 220px; }
@@ -250,12 +269,14 @@ td strong { color: var(--ink); font-weight: 700; }
   .nav-icon { font-size: 13px; }
   .nav-count { min-width: 18px; height: 18px; font-size: 9px; }
   .main { min-height: calc(100vh - 110px); margin-left: 0; }
+  .sidebar .user-box, .logout-button { display: none; }
   .topbar { position: relative; height: 50px; padding: 0 18px; }
   .crumb { font-size: 11px; }
   .demo-badge { padding: 6px 8px; font-size: 9px; }
   .mobile-user { display: block; width: auto; max-width: 130px; min-height: 31px; padding: 0 8px; font-size: 10px; }
   .icon-button { width: 30px; height: 30px; }
   .page { padding: 25px 18px 44px; }
+  .auth-card { padding: 25px 21px; }
   .page-head { align-items: flex-start; }
   .page-head .button { flex: 0 0 auto; }
   h1 { font-size: 23px; }
