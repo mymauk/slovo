@@ -4,15 +4,17 @@
 
 This migration creates tables, roles, functions, and Row Level Security policies. It does not add an admin, invite, student, word, pack, or assignment.
 
-Apply the migration with the Supabase CLI:
+The Supabase CLI config is in `supabase/config.toml`. Run these commands from the repository root:
 
 ```sh
-supabase init
 supabase link --project-ref YOUR_PROJECT_REF
-supabase db push
+supabase db push --remote --dry-run
+supabase db push --remote
 ```
 
-Run `supabase init` once if this folder does not have a Supabase CLI config. You can also run the migration SQL in the Supabase SQL Editor. The project must have the `pgcrypto` extension available.
+If you already linked this folder to your Supabase project, skip `supabase link`. Check the target shown by the dry run before you apply the migration. The migration does not add app records. It only creates the database objects and policies.
+
+You can also run the migration SQL in the Supabase SQL Editor. Use the CLI method when possible. The CLI records the migration as applied. A manual SQL Editor run does not update the CLI migration history.
 
 ## Create the first admin code
 
