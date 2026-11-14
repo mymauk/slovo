@@ -2,7 +2,7 @@
 
 ## Database migration
 
-This migration creates tables, roles, functions, and Row Level Security policies. It does not add an admin, invite, student, word, pack, or assignment.
+The migrations create tables, roles, functions, and Row Level Security policies. They do not add an admin, invite, student, word, pack, or assignment.
 
 The Supabase CLI config is in `supabase/config.toml`. Run these commands from the repository root:
 
@@ -12,7 +12,7 @@ supabase db push --remote --dry-run
 supabase db push --remote
 ```
 
-If you already linked this folder to your Supabase project, skip `supabase link`. Check the target shown by the dry run before you apply the migration. The migration does not add app records. It only creates the database objects and policies.
+If you already linked this folder to your Supabase project, skip `supabase link`. Check the target shown by the dry run before you apply the migration. The migrations do not add app records. They only create database objects and policies.
 
 You can also run the migration SQL in the Supabase SQL Editor. Use the CLI method when possible. The CLI records the migration as applied. A manual SQL Editor run does not update the CLI migration history.
 
@@ -56,3 +56,29 @@ Use the redirect URL shown in the Supabase Auth provider settings. For this repo
 An invite has a label and a note. Use the label to identify the intended learner. Do not enter an email address in the label or note unless you want to store it. The code itself is not bound to an email address.
 
 An admin can create student codes in the site. Each code expires after 30 days by default. The admin sees the code once after creation. The database stores only its hash.
+
+## Student access
+
+An admin can suspend a student from **Students**. A suspended student cannot read or change app data. The database keeps the student record and study progress. The admin can restore access later.
+
+## Import a pack from JSON
+
+An admin can import a JSON file from **Flashcard packs → Import JSON**. A file can include up to 5000 words. Use this shape:
+
+```json
+{
+  "title": "Greetings",
+  "description": "Basic greetings",
+  "level": "A1",
+  "words": [
+    {
+      "ukrainian": "привіт",
+      "english": "hello",
+      "example_ukrainian": "Привіт, як справи?",
+      "audio_path": null
+    }
+  ]
+}
+```
+
+The import creates one pack and links each word in the file. It reuses an existing word when its Ukrainian text and English meaning match. It adds a repeated word to the pack only once.

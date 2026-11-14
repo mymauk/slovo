@@ -60,6 +60,8 @@ The admin can:
 - Create and edit flashcard packs.
 - Add words to a pack.
 - Assign a pack to one or more students.
+- Suspend and restore student access without deleting student records or progress.
+- Import a flashcard pack and its words from one JSON file.
 - Remove a pack assignment.
 
 ### Student
@@ -94,6 +96,10 @@ Invite codes must be hard to guess. Each code must have an expiry date and a use
 2. The admin can add an example sentence and audio.
 3. The admin creates a pack and adds words to it.
 4. The admin assigns the pack to students.
+
+The admin can import a pack from a JSON file. The file has a `title`, an optional `description`, an optional `level`, and a `words` list. Each word has `ukrainian` and `english` text. Each word may have `example_ukrainian` and `audio_path` values. Reuse a word when its Ukrainian text and English meaning already exist. Add each word to the new pack in file order. Ignore repeated words in the same file after the first item.
+
+When the admin edits a pack, provide a search field for Ukrainian and English words. Load 40 word choices at a time. Load the next choices when the admin scrolls to the end of the list. Keep selected words selected when the admin searches.
 
 ### Study session
 

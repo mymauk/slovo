@@ -179,6 +179,46 @@ const translations = {
   'Edit pack': 'Змінити набір',
   'The database does not save the code itself. Copy it now.': 'База даних не зберігає сам код. Скопіюй його зараз.',
   'Share this code with': 'Надішли цей код учню:',
+  'Suspend access': 'Призупинити доступ',
+  'Restore access': 'Відновити доступ',
+  'Active': 'Активний',
+  'Suspended': 'Призупинено',
+  'Access': 'Доступ',
+  'Actions': 'Дії',
+  'Import JSON': 'Імпорт JSON',
+  'Import a pack from JSON': 'Імпортувати набір із JSON',
+  'Choose a JSON file with a pack title and a words list.': 'Обери JSON-файл із назвою набору та списком слів.',
+  'Search Ukrainian or English words': 'Шукати слова українською або англійською',
+  'Scroll to load more words': 'Прокрути, щоб завантажити більше слів',
+  'Loading words…': 'Завантаження слів…',
+  'selected': 'вибрано',
+  'JSON pack format': 'Формат JSON набору',
+  'Select JSON file': 'Обрати JSON-файл',
+  'Import pack': 'Імпортувати набір',
+  'Pack imported.': 'Набір імпортовано.',
+  'The JSON file must contain a title and a words list.': 'У JSON-файлі мають бути назва набору та список слів.',
+  'Each word needs Ukrainian and English text.': 'Кожне слово має містити український та англійський текст.',
+  'Account suspended': 'Обліковий запис призупинено',
+  'Your access is paused. Contact the admin if you think this is a mistake.': 'Твій доступ призупинено. Звернися до адміністратора, якщо це помилка.',
+  'Student access restored.': 'Доступ учня відновлено.',
+  'Student access suspended.': 'Доступ учня призупинено.',
+  'Select a JSON file.': 'Обери JSON-файл.',
+  'A pack can contain no more than 5000 words.': 'Набір може містити не більше 5000 слів.',
+  'Only an active admin can change student access': 'Змінювати доступ може лише активний адміністратор.',
+  'An admin cannot suspend their own account': 'Адміністратор не може призупинити власний обліковий запис.',
+  'Student account was not found': 'Обліковий запис учня не знайдено.',
+  'Only an active admin can import a pack': 'Імпортувати набір може лише активний адміністратор.',
+  'The JSON file must contain one pack object': 'JSON-файл має містити один об’єкт набору.',
+  'The pack title must have 1 to 120 characters': 'Назва набору має містити від 1 до 120 символів.',
+  'The pack description must have 2000 characters or less': 'Опис набору має містити не більше 2000 символів.',
+  'The pack level must have 40 characters or less': 'Рівень набору має містити не більше 40 символів.',
+  'The pack must include a words array': 'Набір має містити список слів.',
+  'A pack must include from 1 to 5000 words': 'Набір має містити від 1 до 5000 слів.',
+  'Each word must be a JSON object': 'Кожне слово має бути об’єктом JSON.',
+  'Each Ukrainian word must have 1 to 200 characters': 'Українське слово має містити від 1 до 200 символів.',
+  'Each English meaning must have 1 to 300 characters': 'Англійське значення має містити від 1 до 300 символів.',
+  'The word could not be saved': 'Не вдалося зберегти слово.',
+  'The file does not contain valid JSON.': 'JSON-файл має містити коректний JSON.',
   'The database does not save the code itself. Copy it now.': 'База даних не зберігає сам код. Скопіюй його зараз.',
   'You finished this set. Your progress is saved.': 'Ти завершив цей набір. Твій прогрес збережено.',
   'Main navigation': 'Головна навігація',
@@ -217,6 +257,14 @@ let study = null
 let alertMessage = ''
 let search = ''
 let lastInviteCode = ''
+let wordPickerSearch = ''
+let wordPickerOffset = 0
+let wordPickerHasMore = true
+let wordPickerLoading = false
+let wordPickerRequest = 0
+let wordPickerItems = []
+let wordPickerTimer = 0
+let wordPickerSelected = new Set()
 let language = localStorage.getItem('slovo-language') === 'uk' ? 'uk' : 'en'
 
 function languageToggle() {
@@ -245,6 +293,7 @@ function localize(root = app) {
       .replace(/^(\d+) students assigned$/, '$1 учнів мають доступ')
       .replace(/^(\d+) packs$/, '$1 наборів')
       .replace(/^(\d+) known$/, '$1 відомо')
+      .replace(/^(\d+) selected$/, '$1 вибрано')
       .replace(/^(\d+) of (\d+)$/, '$1 з $2')
       .replace(/^(\d+) words$/, '$1 слів')
     if (translated !== trimmed) node.nodeValue = original.replace(trimmed, translated)
@@ -299,12 +348,24 @@ function progressFor(pack) {
   return { total: words.length, known, percent: words.length ? Math.round(known / words.length * 100) : 0 }
 }
 
-function setPage(nextPage) {
+async function loadAdminWords() {
+  if (!isAdmin() || data.words.length >= data.wordCount) return
+  const words = []
+  for (let start = 0; start < data.wordCount; start += 1000) {
+    const { data: rows, error } = await supabase.from('words').select('id,ukrainian,english,example_ukrainian,audio_path,created_by,created_at').order('ukrainian').range(start, start + 999)
+    if (error) throw error
+    words.push(...rows.map(item => ({ ...item, ua: item.ukrainian, en: item.english, example: item.example_ukrainian, audioPath: item.audio_path })))
+  }
+  data.words = words
+}
+
+async function setPage(nextPage) {
   page = nextPage
   search = ''
   modal = null
   study = null
   clearAlert()
+  if (nextPage === 'words') await loadAdminWords()
   render()
 }
 
@@ -322,10 +383,17 @@ function renderSetup() {
   app.innerHTML = `<main class="auth-page"><section class="auth-card">${languageToggle()}<a class="brand auth-brand" href="./"><span class="brand-mark">S</span><span><span class="brand-name">slovo</span><span class="brand-note">your Ukrainian words</span></span></a><div class="eyebrow">Connection setup</div><h1>Connect this site to Supabase.</h1><p class="subhead">Add the project URL and public publishable key to the ignored .env file. Then build the site again.</p><div class="alert-box">Do not add the service-role key here. The site uses only a public client key and protects data with database policies.</div></section></main>`
 }
 
+function renderSuspended() {
+  app.innerHTML = `<main class="auth-page"><section class="auth-card">${languageToggle()}<a class="brand auth-brand" href="./"><span class="brand-mark">S</span><span><span class="brand-name">slovo</span><span class="brand-note">your Ukrainian words</span></span></a><div class="eyebrow">Account suspended</div><h1>Account suspended</h1><p class="subhead">Your access is paused. Contact the admin if you think this is a mistake.</p><button class="button secondary auth-google" data-action="sign-out">Sign out</button></section></main>`
+}
+
 async function loadData() {
+  const wordsQuery = isAdmin()
+    ? supabase.from('words').select('id,ukrainian,english,example_ukrainian,audio_path,created_by,created_at', { count: 'exact' }).order('ukrainian').range(0, 39)
+    : supabase.from('words').select('id,ukrainian,english,example_ukrainian,audio_path,created_by,created_at').order('ukrainian')
   const queries = [
-    supabase.from('profiles').select('user_id,role,full_name,email,created_at').order('created_at'),
-    supabase.from('words').select('id,ukrainian,english,example_ukrainian,audio_path,created_by,created_at').order('ukrainian'),
+    supabase.from('profiles').select('user_id,role,full_name,email,created_at,suspended_at').order('created_at'),
+    wordsQuery,
     supabase.from('packs').select('id,title,description,level,created_by,created_at').order('created_at', { ascending: false }),
     supabase.from('pack_words').select('pack_id,word_id,position').order('position'),
     supabase.from('assignments').select('id,student_id,pack_id,assigned_by,created_at'),
@@ -339,6 +407,7 @@ async function loadData() {
   data = {
     students: profiles.filter(item => item.role === 'student'),
     words: words.map(item => ({ ...item, ua: item.ukrainian, en: item.english, example: item.example_ukrainian, audioPath: item.audio_path })),
+    wordCount: results[1].count ?? words.length,
     packs,
     packWords: packWordsRows,
     assignments,
@@ -357,12 +426,16 @@ async function finishSignIn(currentSession) {
     return
   }
   renderLoading()
-  const { data: ownProfile, error: profileError } = await supabase.from('profiles').select('user_id,role,full_name,email,invite_id').eq('user_id', session.user.id).maybeSingle()
+  const { data: ownProfile, error: profileError } = await supabase.from('profiles').select('user_id,role,full_name,email,invite_id,suspended_at').eq('user_id', session.user.id).maybeSingle()
   if (profileError) {
     showAlert(profileError.message)
     return
   }
   profile = ownProfile
+  if (profile?.suspended_at) {
+    renderSuspended()
+    return
+  }
   if (profile) sessionStorage.removeItem(inviteStorageKey)
   if (!profile) {
     const pendingCode = sessionStorage.getItem(inviteStorageKey)
@@ -378,7 +451,7 @@ async function finishSignIn(currentSession) {
         return
       }
       sessionStorage.removeItem(inviteStorageKey)
-      const { data: redeemedProfile, error: reloadError } = await supabase.from('profiles').select('user_id,role,full_name,email,invite_id').eq('user_id', session.user.id).single()
+      const { data: redeemedProfile, error: reloadError } = await supabase.from('profiles').select('user_id,role,full_name,email,invite_id,suspended_at').eq('user_id', session.user.id).single()
       if (reloadError) {
         showAlert(reloadError.message)
         return
@@ -408,6 +481,10 @@ function navItems() {
 }
 
 function render() {
+  if (profile?.suspended_at) {
+    renderSuspended()
+    return
+  }
   if (!profile) {
     renderLogin()
     return
@@ -462,16 +539,17 @@ function renderProgress() {
 }
 
 function renderAdminHome() {
-  return `<div class="page-head"><div><div class="eyebrow">Teacher workspace</div><h1>Welcome, ${esc(displayName().split(/\s+/)[0])}</h1><p class="subhead">Manage students, words, and flashcard packs.</p></div><button class="button" data-action="new-invite">＋ Create invite code</button></div><div class="stat-grid"><div class="stat-card"><div class="stat-top"><span>Students</span><span class="stat-icon">♙</span></div><div class="stat-value">${data.students.length}</div><div class="stat-foot">Learners with access</div></div><div class="stat-card"><div class="stat-top"><span>Word library</span><span class="stat-icon">▤</span></div><div class="stat-value">${data.words.length}</div><div class="stat-foot">Words ready to teach</div></div><div class="stat-card"><div class="stat-top"><span>Flashcard packs</span><span class="stat-icon">▱</span></div><div class="stat-value">${data.packs.length}</div><div class="stat-foot">Curated sets</div></div><div class="stat-card"><div class="stat-top"><span>Assignments</span><span class="stat-icon">↗</span></div><div class="stat-value">${data.assignments.length}</div><div class="stat-foot">Packs shared with students</div></div></div><div class="section-title"><h2>Your students</h2><button class="text-button" data-action="nav" data-page="students">Manage students →</button></div>${renderStudentTable(data.students.slice(0, 5))}<div class="section-title"><h2>Quick actions</h2></div><div class="toolbar"><button class="button secondary" data-action="new-word">＋ Add a word</button><button class="button secondary" data-action="new-pack">＋ Create a pack</button><button class="button secondary" data-action="new-invite">＋ Create invite</button></div>`
+  return `<div class="page-head"><div><div class="eyebrow">Teacher workspace</div><h1>Welcome, ${esc(displayName().split(/\s+/)[0])}</h1><p class="subhead">Manage students, words, and flashcard packs.</p></div><button class="button" data-action="new-invite">＋ Create invite code</button></div><div class="stat-grid"><div class="stat-card"><div class="stat-top"><span>Students</span><span class="stat-icon">♙</span></div><div class="stat-value">${data.students.length}</div><div class="stat-foot">Learners with access</div></div><div class="stat-card"><div class="stat-top"><span>Word library</span><span class="stat-icon">▤</span></div><div class="stat-value">${data.wordCount}</div><div class="stat-foot">Words ready to teach</div></div><div class="stat-card"><div class="stat-top"><span>Flashcard packs</span><span class="stat-icon">▱</span></div><div class="stat-value">${data.packs.length}</div><div class="stat-foot">Curated sets</div></div><div class="stat-card"><div class="stat-top"><span>Assignments</span><span class="stat-icon">↗</span></div><div class="stat-value">${data.assignments.length}</div><div class="stat-foot">Packs shared with students</div></div></div><div class="section-title"><h2>Your students</h2><button class="text-button" data-action="nav" data-page="students">Manage students →</button></div>${renderStudentTable(data.students.slice(0, 5))}<div class="section-title"><h2>Quick actions</h2></div><div class="toolbar"><button class="button secondary" data-action="new-word">＋ Add a word</button><button class="button secondary" data-action="new-pack">＋ Create a pack</button><button class="button secondary" data-action="new-invite">＋ Create invite</button></div>`
 }
 
-function renderStudentTable(rows) {
+function renderStudentTable(rows, manage = false) {
   if (!rows.length) return '<div class="empty-state"><div class="empty-icon">♙</div><h3>No students yet</h3><p>Create an invite code and share it with a learner.</p></div>'
-  return `<div class="panel"><div class="table-wrap"><table><thead><tr><th>Student</th><th>Assigned packs</th><th>Words known</th><th></th></tr></thead><tbody>${rows.map(student => {
+  return `<div class="panel"><div class="table-wrap"><table><thead><tr><th>Student</th><th>Assigned packs</th><th>Words known</th>${manage ? '<th>Access</th><th>Actions</th>' : ''}</tr></thead><tbody>${rows.map(student => {
     const assigned = data.assignments.filter(item => item.student_id === student.user_id)
     const wordIds = [...new Set(assigned.flatMap(item => data.packWords.filter(pw => pw.pack_id === item.pack_id).map(pw => pw.word_id)))]
     const known = data.allProgress.filter(item => item.student_id === student.user_id && item.status === 'known').length
-    return `<tr><td><div class="person-cell"><span class="avatar">${esc(student.full_name.slice(0, 2).toUpperCase())}</span><div class="person-detail"><strong>${esc(student.full_name)}</strong><span>${esc(student.email)}</span></div></div></td><td>${assigned.length} packs</td><td>${known} / ${wordIds.length} words</td><td><button class="table-action" data-action="assign-student" data-id="${esc(student.user_id)}">Assign packs</button></td></tr>`
+    const management = manage ? `<td><span class="pill ${student.suspended_at ? 'yellow' : 'green'}">${student.suspended_at ? 'Suspended' : 'Active'}</span></td><td><div class="table-actions"><button class="table-action" data-action="assign-student" data-id="${esc(student.user_id)}">Assign packs</button><button class="table-action ${student.suspended_at ? '' : 'danger-action'}" data-action="suspend-student" data-id="${esc(student.user_id)}" data-suspended="${Boolean(student.suspended_at)}">${student.suspended_at ? 'Restore access' : 'Suspend access'}</button></div></td>` : ''
+    return `<tr><td><div class="person-cell"><span class="avatar">${esc(student.full_name.slice(0, 2).toUpperCase())}</span><div class="person-detail"><strong>${esc(student.full_name)}</strong><span>${esc(student.email)}</span></div></div></td><td>${assigned.length} packs</td><td>${known} / ${wordIds.length} words</td>${management}</tr>`
   }).join('')}</tbody></table></div></div>`
 }
 
@@ -479,32 +557,32 @@ function renderStudents() {
   const redeemed = new Map(data.invites.filter(item => item.redeemed_by).map(item => [item.redeemed_by, item]))
   const rows = data.students.map(student => ({ ...student, invite: redeemed.get(student.user_id) }))
   const inviteRows = data.invites.map(invite => `<tr><td><strong>${esc(invite.label)}</strong><div class="field-hint">${esc(invite.note || '')}</div></td><td>${esc(invite.role)}</td><td><span class="pill ${invite.redeemed_by ? 'green' : 'yellow'}">${invite.redeemed_by ? 'Used' : 'Unused'}</span></td><td>${invite.expires_at ? new Date(invite.expires_at).toLocaleDateString() : 'No expiry'}</td><td>${esc(invite.redeemed_by ? data.students.find(student => student.user_id === invite.redeemed_by)?.full_name || 'Redeemed' : '—')}</td></tr>`).join('')
-  return `<div class="page-head"><div><div class="eyebrow">Class list</div><h1>Students</h1><p class="subhead">Create a code and add a note to identify the learner.</p></div><button class="button" data-action="new-invite">＋ Create invite code</button></div>${renderStudentTable(rows)}<div class="section-title"><h2>Invite codes</h2></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>Label and note</th><th>Role</th><th>Status</th><th>Expires</th><th>Redeemed by</th></tr></thead><tbody>${inviteRows || '<tr><td colspan="5">No invite codes yet.</td></tr>'}</tbody></table></div></div>`
+  return `<div class="page-head"><div><div class="eyebrow">Class list</div><h1>Students</h1><p class="subhead">Create a code and add a note to identify the learner.</p></div><button class="button" data-action="new-invite">＋ Create invite code</button></div>${renderStudentTable(rows, true)}<div class="section-title"><h2>Invite codes</h2></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>Label and note</th><th>Role</th><th>Status</th><th>Expires</th><th>Redeemed by</th></tr></thead><tbody>${inviteRows || '<tr><td colspan="5">No invite codes yet.</td></tr>'}</tbody></table></div></div>`
 }
 
 function renderWords() {
   const query = search.toLowerCase()
   const words = data.words.filter(word => `${word.ua} ${word.en}`.toLowerCase().includes(query))
   const rows = words.map(word => `<tr><td><div class="word-row"><button class="word-audio" data-action="speak" data-id="${esc(word.id)}" aria-label="Play ${esc(word.ua)}">▶</button><span class="word-ua" lang="uk">${esc(word.ua)}</span></div></td><td><strong>${esc(word.en)}</strong></td><td>${esc(word.example || '—')}</td><td>${word.audioPath ? 'Audio set' : 'Browser voice'}</td><td><button class="table-action" data-action="edit-word" data-id="${esc(word.id)}">Edit</button><button class="table-action" data-action="delete-word" data-id="${esc(word.id)}">Remove</button></td></tr>`).join('')
-  return `<div class="page-head"><div><div class="eyebrow">Shared library</div><h1>Word library</h1><p class="subhead">Add translations once. Use them in any pack.</p></div><button class="button" data-action="new-word">＋ Add a word</button></div><div class="panel"><div class="panel-head"><div><h2>${data.words.length} words</h2><p>Browser speech works when a Ukrainian voice is available.</p></div><input class="search" data-action="search" type="search" placeholder="Search words" value="${esc(search)}" aria-label="Search words"></div><div class="table-wrap"><table><thead><tr><th>Ukrainian</th><th>English</th><th>Example</th><th>Audio</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5">No words match this search.</td></tr>'}</tbody></table></div></div>`
+  return `<div class="page-head"><div><div class="eyebrow">Shared library</div><h1>Word library</h1><p class="subhead">Add translations once. Use them in any pack.</p></div><button class="button" data-action="new-word">＋ Add a word</button></div><div class="panel"><div class="panel-head"><div><h2>${data.wordCount} words</h2><p>Browser speech works when a Ukrainian voice is available.</p></div><input class="search" data-action="search" type="search" placeholder="Search words" value="${esc(search)}" aria-label="Search words"></div><div class="table-wrap"><table><thead><tr><th>Ukrainian</th><th>English</th><th>Example</th><th>Audio</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5">No words match this search.</td></tr>'}</tbody></table></div></div>`
 }
 
 function renderAdminPacks() {
   const rows = data.packs.map(pack => {
-    const count = packWords(pack).length
+    const count = data.packWords.filter(item => item.pack_id === pack.id).length
     const students = data.assignments.filter(item => item.pack_id === pack.id).length
     return `<div class="assigned-row"><div><div class="assigned-title">${esc(pack.title)}</div><div class="field-hint">${esc(pack.description || 'No description')}</div></div><span class="pill">${count} words</span><span style="color:#7c8494;font-size:10px">${students} students assigned</span><div class="toolbar"><button class="table-action" data-action="edit-pack" data-id="${esc(pack.id)}">Edit</button><button class="table-action" data-action="assign-pack" data-id="${esc(pack.id)}">Assign</button></div></div>`
   }).join('')
-  return `<div class="page-head"><div><div class="eyebrow">Your teaching sets</div><h1>Flashcard packs</h1><p class="subhead">Build a set from your word library, then assign it.</p></div><button class="button" data-action="new-pack">＋ Create a pack</button></div><div class="panel"><div class="panel-head"><div><h2>${data.packs.length} packs</h2><p>Use words from your shared library.</p></div></div><div class="panel-body"><div class="assigned-list">${rows || '<div class="empty-state"><h3>No packs yet</h3><p>Create a pack to begin.</p></div>'}</div></div></div>`
+  return `<div class="page-head"><div><div class="eyebrow">Your teaching sets</div><h1>Flashcard packs</h1><p class="subhead">Build a set from your word library, then assign it.</p></div><div class="toolbar"><button class="button secondary" data-action="import-pack">Import JSON</button><button class="button" data-action="new-pack">＋ Create a pack</button></div></div><div class="panel"><div class="panel-head"><div><h2>${data.packs.length} packs</h2><p>Use words from your shared library.</p></div></div><div class="panel-body"><div class="assigned-list">${rows || '<div class="empty-state"><h3>No packs yet</h3><p>Create a pack to begin.</p></div>'}</div></div></div>`
 }
 
 function renderModal() {
   if (!modal) return ''
-  return `<div class="modal-backdrop" data-action="backdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-head"><div><h2>${esc(modal.title)}</h2><p>${esc(modal.subtitle || '')}</p></div><button class="close-button" data-action="close-modal" aria-label="Close">×</button></div>${modal.body}</section></div>`
+  return `<div class="modal-backdrop" data-action="backdrop"><section class="modal ${modal.wide ? 'modal-wide' : ''}" role="dialog" aria-modal="true"><div class="modal-head"><div><h2>${esc(modal.title)}</h2><p>${esc(modal.subtitle || '')}</p></div><button class="close-button" data-action="close-modal" aria-label="Close">×</button></div>${modal.body}</section></div>`
 }
 
-function openModal(title, subtitle, body) {
-  modal = { title, subtitle, body }
+function openModal(title, subtitle, body, wide = false) {
+  modal = { title, subtitle, body, wide }
   render()
 }
 
@@ -512,10 +590,81 @@ function wordForm(word = {}) {
   openModal(word.id ? 'Edit word' : 'Add a word', 'Add Ukrainian text and an English meaning.', `<form class="form" data-form="word" data-id="${esc(word.id || '')}"><div class="field"><label for="word-ua">Ukrainian word</label><input id="word-ua" name="ua" required value="${esc(word.ua || '')}"></div><div class="field"><label for="word-en">English meaning</label><input id="word-en" name="en" required value="${esc(word.en || '')}"></div><div class="field"><label for="word-example">Example sentence</label><textarea id="word-example" name="example">${esc(word.example || '')}</textarea></div><div class="field"><label for="word-audio">Audio file path or URL</label><input id="word-audio" name="audioPath" value="${esc(word.audioPath || '')}" placeholder="Optional"></div><div class="form-actions"><button type="button" class="button secondary" data-action="close-modal">Cancel</button><button class="button" type="submit">Save word</button></div></form>`)
 }
 
+function wordPickerResults() {
+  const query = wordPickerSearch.trim().replace(/[%_(),\\"]/g, ' ').toLocaleLowerCase()
+  return wordPickerItems.filter(word => !query || `${word.ua} ${word.en}`.toLocaleLowerCase().includes(query))
+}
+
+function renderWordPickerItems() {
+  const results = wordPickerResults()
+  const rows = results.map(word => `<label class="check-row pack-word-row"><span class="pack-word-spacer"></span><input type="checkbox" name="wordIds" data-action="pack-word-select" value="${esc(word.id)}" ${wordPickerSelected.has(word.id) ? 'checked' : ''}><span lang="uk">${esc(word.ua)} <span class="pack-word-en">· ${esc(word.en)}</span></span></label>`).join('')
+  const empty = results.length || wordPickerLoading ? '' : '<div class="empty-state"><p>No words match this search.</p></div>'
+  const more = wordPickerLoading ? '<div class="word-picker-more">Loading words…</div>' : wordPickerHasMore ? '<div class="word-picker-more">Scroll to load more words</div>' : ''
+  return `${rows}${empty}${more}`
+}
+
+async function loadWordPickerPage(reset = false) {
+  if (reset) {
+    wordPickerRequest += 1
+    wordPickerOffset = 0
+    wordPickerHasMore = true
+    wordPickerLoading = false
+    wordPickerItems = []
+    const list = app.querySelector('.pack-word-list')
+    if (list) list.innerHTML = renderWordPickerItems()
+  }
+  if (wordPickerLoading || !wordPickerHasMore) return
+  const request = wordPickerRequest
+  const start = wordPickerOffset
+  const term = wordPickerSearch.trim().replace(/[%_(),\\"]/g, ' ').trim()
+  let query = supabase.from('words').select('id,ukrainian,english').order('ukrainian').range(start, start + 39)
+  if (term) query = query.or(`ukrainian.ilike.%${term}%,english.ilike.%${term}%`)
+  wordPickerLoading = true
+  const list = app.querySelector('.pack-word-list')
+  if (list) list.innerHTML = renderWordPickerItems()
+  let result
+  try {
+    result = await query
+  } catch (error) {
+    if (request !== wordPickerRequest) return
+    wordPickerLoading = false
+    showToast(error.message)
+    const currentList = app.querySelector('.pack-word-list')
+    if (currentList) currentList.innerHTML = renderWordPickerItems()
+    return
+  }
+  const { data: rows, error } = result
+  if (request !== wordPickerRequest) return
+  wordPickerLoading = false
+  if (error) {
+    showToast(error.message)
+    const currentList = app.querySelector('.pack-word-list')
+    if (currentList) currentList.innerHTML = renderWordPickerItems()
+    return
+  }
+  const knownIds = new Set(wordPickerItems.map(word => word.id))
+  for (const row of rows || []) {
+    if (!knownIds.has(row.id)) wordPickerItems.push({ ...row, ua: row.ukrainian, en: row.english })
+  }
+  wordPickerOffset = start + (rows || []).length
+  wordPickerHasMore = (rows || []).length === 40
+  const currentList = app.querySelector('.pack-word-list')
+  if (currentList) currentList.innerHTML = renderWordPickerItems()
+}
+
 function packForm(pack = {}) {
-  const selected = new Set(packWords(pack).map(word => word.id))
-  const boxes = data.words.map(word => `<label class="check-row"><input type="checkbox" name="wordIds" value="${esc(word.id)}" ${selected.has(word.id) ? 'checked' : ''}><span lang="uk">${esc(word.ua)} <span style="color:#9198a6">· ${esc(word.en)}</span></span></label>`).join('')
-  openModal(pack.id ? 'Edit pack' : 'Create a pack', 'Choose a name and add words.', `<form class="form" data-form="pack" data-id="${esc(pack.id || '')}"><div class="field"><label for="pack-title">Pack name</label><input id="pack-title" name="title" required value="${esc(pack.title || '')}"></div><div class="field"><label for="pack-description">Description</label><input id="pack-description" name="description" value="${esc(pack.description || '')}"></div><div class="field"><label for="pack-level">Level</label><select id="pack-level" name="level"><option ${pack.level === 'Starter' ? 'selected' : ''}>Starter</option><option ${pack.level === 'A1' ? 'selected' : ''}>A1</option><option ${pack.level === 'A2' ? 'selected' : ''}>A2</option></select></div><div class="field"><label>Words in this pack</label><div class="check-list">${boxes || '<span class="field-hint">Add words first.</span>'}</div></div><div class="form-actions"><button type="button" class="button secondary" data-action="close-modal">Cancel</button><button class="button" type="submit">Save pack</button></div></form>`)
+  wordPickerSelected = new Set(data.packWords.filter(item => item.pack_id === pack.id).map(item => item.word_id))
+  wordPickerSearch = ''
+  wordPickerOffset = 0
+  wordPickerHasMore = true
+  wordPickerItems = []
+  openModal(pack.id ? 'Edit pack' : 'Create a pack', 'Choose a name and add words.', `<form class="form" data-form="pack" data-id="${esc(pack.id || '')}"><div class="field"><label for="pack-title">Pack name</label><input id="pack-title" name="title" required value="${esc(pack.title || '')}"></div><div class="field"><label for="pack-description">Description</label><input id="pack-description" name="description" value="${esc(pack.description || '')}"></div><div class="field"><label for="pack-level">Level</label><select id="pack-level" name="level"><option ${pack.level === 'Starter' ? 'selected' : ''}>Starter</option><option ${pack.level === 'A1' ? 'selected' : ''}>A1</option><option ${pack.level === 'A2' ? 'selected' : ''}>A2</option></select></div><div class="field"><div class="word-picker-heading"><label for="pack-word-search">Words in this pack</label><span data-word-picker-count>${wordPickerSelected.size} selected</span></div><input class="search pack-word-search" id="pack-word-search" data-action="pack-word-search" type="search" placeholder="Search Ukrainian or English words" value=""><div class="check-list pack-word-list">${renderWordPickerItems()}</div></div><div class="form-actions"><button type="button" class="button secondary" data-action="close-modal">Cancel</button><button class="button" type="submit">Save pack</button></div></form>`, true)
+  loadWordPickerPage(true)
+}
+
+function packImportForm() {
+  const sample = JSON.stringify({ title: 'Greetings', description: 'Basic greetings', level: 'A1', words: [{ ukrainian: 'привіт', english: 'hello', example_ukrainian: 'Привіт, як справи?', audio_path: null }] }, null, 2)
+  openModal('Import a pack from JSON', 'Choose a JSON file with a pack title and a words list.', `<form class="form" data-form="pack-import"><div class="field"><label for="pack-json">Select JSON file</label><input id="pack-json" name="file" type="file" accept=".json,application/json" required></div><details class="json-format"><summary>JSON pack format</summary><pre>${esc(sample)}</pre></details><div class="form-actions"><button type="button" class="button secondary" data-action="close-modal">Cancel</button><button class="button" type="submit">Import pack</button></div></form>`)
 }
 
 function inviteForm() {
@@ -606,6 +755,7 @@ function showToast(message) {
 
 async function reloadData() {
   await loadData()
+  if (page === 'words') await loadAdminWords()
   render()
 }
 
@@ -621,7 +771,7 @@ async function handleAction(action, element, event) {
     localize(document.body)
     return
   }
-  if (action === 'nav') setPage(element.dataset.page)
+    if (action === 'nav') await setPage(element.dataset.page)
   if (action === 'google-login') {
     if (session) {
       await supabase.auth.signOut()
@@ -646,12 +796,24 @@ async function handleAction(action, element, event) {
     renderLogin()
   }
   if (action === 'new-invite') inviteForm()
+  if (action === 'import-pack') packImportForm()
   if (action === 'new-word') wordForm()
   if (action === 'edit-word') wordForm(data.words.find(word => word.id === id))
   if (action === 'new-pack') packForm()
   if (action === 'edit-pack') packForm(data.packs.find(pack => pack.id === id))
   if (action === 'assign-student') assignmentForm(id)
   if (action === 'assign-pack') assignmentForm('', id)
+  if (action === 'suspend-student') {
+    const suspended = element.dataset.suspended === 'true'
+    const prompt = suspended
+      ? (language === 'uk' ? 'Відновити доступ цього учня?' : 'Restore this student’s access?')
+      : (language === 'uk' ? 'Призупинити доступ цього учня? Його дані та прогрес залишаться.' : 'Suspend this student’s access? Their data and progress will remain.')
+    if (!confirm(prompt)) return
+    const { error } = await supabase.rpc('set_student_suspended', { p_student_id: id, p_suspended: !suspended })
+    if (error) throw error
+    await reloadData()
+    showToast(suspended ? 'Student access restored.' : 'Student access suspended.')
+  }
   if (action === 'close-modal') {
     modal = null
     render()
@@ -732,6 +894,22 @@ app.addEventListener('click', event => {
 })
 
 app.addEventListener('input', event => {
+  if (event.target.dataset.action === 'pack-word-search') {
+    wordPickerSearch = event.target.value
+    wordPickerRequest += 1
+    wordPickerLoading = false
+    wordPickerOffset = 0
+    wordPickerHasMore = true
+    wordPickerItems = []
+    const list = app.querySelector('.pack-word-list')
+    if (list) {
+      list.scrollTop = 0
+      list.innerHTML = '<div class="word-picker-more">Loading words…</div>'
+    }
+    clearTimeout(wordPickerTimer)
+    wordPickerTimer = setTimeout(() => loadWordPickerPage(true), 250)
+    return
+  }
   if (event.target.dataset.action === 'search') {
     search = event.target.value
     const cursor = event.target.selectionStart
@@ -779,6 +957,29 @@ app.addEventListener('submit', async event => {
       await reloadData()
       openModal('Invite code ready', `Share this code with ${invite.label}. It can be used once.`, `<div class="form"><div class="invite-code-display"><div class="eyebrow">Student invite code</div><strong>${esc(invite.code)}</strong><p>${esc(invite.label)}</p></div><p class="field-hint">The database does not save the code itself. Copy it now.</p><div class="form-actions"><button type="button" class="button secondary" data-action="copy-code">Copy code</button><button class="button" data-action="close-modal">Done</button></div></div>`)
     }
+    if (kind === 'pack-import') {
+      const file = values.get('file')
+      if (!(file instanceof File) || !file.size) throw new Error(language === 'uk' ? 'Обери JSON-файл.' : 'Select a JSON file.')
+      let pack
+      try {
+        pack = JSON.parse(await file.text())
+      } catch {
+        throw new Error(language === 'uk' ? 'JSON-файл має містити коректний JSON.' : 'The file does not contain valid JSON.')
+      }
+      if (!pack || typeof pack !== 'object' || typeof pack.title !== 'string' || !Array.isArray(pack.words) || !pack.words.length) {
+        throw new Error(language === 'uk' ? translations['The JSON file must contain a title and a words list.'] : 'The JSON file must contain a title and a words list.')
+      }
+      if (pack.words.length > 5000) throw new Error(language === 'uk' ? translations['A pack can contain no more than 5000 words.'] : 'A pack can contain no more than 5000 words.')
+      if (pack.words.some(word => !word || typeof word.ukrainian !== 'string' || typeof word.english !== 'string')) {
+        throw new Error(language === 'uk' ? translations['Each word needs Ukrainian and English text.'] : 'Each word needs Ukrainian and English text.')
+      }
+      const { error } = await supabase.rpc('import_pack_json', { p_pack: pack })
+      if (error) throw error
+      modal = null
+      page = 'packs'
+      await reloadData()
+      showToast('Pack imported.')
+    }
     if (kind === 'word') {
       const id = form.dataset.id
       const payload = { ukrainian: values.get('ua').trim(), english: values.get('en').trim(), example_ukrainian: values.get('example').trim() || null, audio_path: values.get('audioPath').trim() || null }
@@ -805,7 +1006,7 @@ app.addEventListener('submit', async event => {
       }
       const { error: deleteError } = await supabase.from('pack_words').delete().eq('pack_id', packId)
       if (deleteError) throw deleteError
-      const wordIds = values.getAll('wordIds')
+      const wordIds = [...wordPickerSelected]
       if (wordIds.length) {
         const { error: insertError } = await supabase.from('pack_words').insert(wordIds.map((wordId, position) => ({ pack_id: packId, word_id: wordId, position })))
         if (insertError) throw insertError
@@ -853,11 +1054,23 @@ app.addEventListener('submit', async event => {
 })
 
 app.addEventListener('change', event => {
+  if (event.target.dataset.action === 'pack-word-select') {
+    if (event.target.checked) wordPickerSelected.add(event.target.value)
+    else wordPickerSelected.delete(event.target.value)
+    const count = app.querySelector('[data-word-picker-count]')
+    if (count) count.textContent = `${wordPickerSelected.size} selected`
+  }
   if (event.target.dataset.action === 'search') {
     search = event.target.value
     render()
   }
 })
+
+app.addEventListener('scroll', event => {
+  const list = event.target.closest?.('.pack-word-list')
+  if (!list || list.scrollTop + list.clientHeight < list.scrollHeight - 60) return
+  loadWordPickerPage()
+}, true)
 
 async function boot() {
   if (!config.url || !config.key || !createClient) {
