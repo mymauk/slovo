@@ -73,6 +73,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .crumb { color: var(--muted); font-size: 12px; }
 .crumb strong { color: var(--ink); font-weight: 700; }
 .top-actions { display: flex; align-items: center; gap: 10px; }
+.language-toggle { display: inline-flex; min-height: 33px; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: white; color: #687185; cursor: pointer; font-size: 10px; font-weight: 700; }
+.language-toggle span { padding: 5px 7px; border-radius: 6px; }
+.language-toggle .selected { background: var(--blue-pale); color: var(--blue); }
 .demo-badge { display: flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid #eee4bb; border-radius: 20px; background: #fffaf0; color: #927638; font-size: 10px; font-weight: 700; }
 .demo-dot { width: 6px; height: 6px; border-radius: 50%; background: #d7a83d; }
 .icon-button { display: grid; width: 35px; height: 35px; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: white; color: #6f7788; }
@@ -198,6 +201,7 @@ td strong { color: var(--ink); font-weight: 700; }
 
 .study-shell { position: fixed; inset: 0; z-index: 15; overflow: auto; background: #f7f7f4; }
 .study-top { display: flex; height: 70px; align-items: center; justify-content: space-between; padding: 0 5vw; border-bottom: 1px solid var(--line); background: white; }
+.study-top-actions { display: flex; align-items: center; gap: 14px; }
 .study-back { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: #677083; font-size: 12px; font-weight: 700; }
 .study-pack { display: grid; gap: 3px; text-align: center; }
 .study-pack strong { font-family: Manrope, sans-serif; font-size: 12px; }
@@ -230,6 +234,7 @@ td strong { color: var(--ink); font-weight: 700; }
 
 .auth-page { display: grid; min-height: 100vh; place-items: center; padding: 28px 16px; background: radial-gradient(circle at 18% 15%, #eaf0ff 0, transparent 30%), radial-gradient(circle at 90% 82%, #e4f5ec 0, transparent 28%), var(--canvas); }
 .auth-card { width: min(440px, 100%); padding: 30px; border: 1px solid var(--line); border-radius: 18px; background: white; box-shadow: var(--shadow); }
+.auth-card > .language-toggle { float: right; margin: -8px -8px 0 0; }
 .auth-brand { margin-bottom: 35px; padding: 0; }
 .auth-card h1 { margin: 0 0 9px; font-size: 28px; }
 .auth-card > .subhead { margin-bottom: 22px; }

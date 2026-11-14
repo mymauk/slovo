@@ -3,6 +3,207 @@ const createClient = window.supabase?.createClient
 const app = document.querySelector('#app')
 const inviteStorageKey = 'slovo-pending-invite'
 const emptyData = { students: [], words: [], packs: [], assignments: [], progress: {}, invites: [] }
+const translations = {
+  'your Ukrainian words': 'твої українські слова',
+  'Ukrainian, one word at a time': 'Українська, слово за словом',
+  'Use your invite code': 'Введи код запрошення',
+  'A new word is a small win.': 'Кожне нове слово — це перемога.',
+  'This Google account is ready. Enter the code that the admin shared with you.': 'Цей обліковий запис Google готовий. Введи код, який надав адміністратор.',
+  'Enter the invite code that the admin shared with you. Then continue with Google.': 'Введи код запрошення від адміністратора. Потім продовж через Google.',
+  'Invite code': 'Код запрошення',
+  'Activate account': 'Активувати обліковий запис',
+  'Continue with Google': 'Продовжити з Google',
+  'Already joined?': 'Вже маєш обліковий запис?',
+  'Sign out': 'Вийти',
+  'Sign in with Google': 'Увійти через Google',
+  'Your code is not tied to an email. Use the Google account that you want to use for learning.': 'Код не прив’язаний до електронної пошти. Використовуй обліковий запис Google, з яким будеш навчатися.',
+  'Connection setup': 'Налаштування з’єднання',
+  'Connect this site to Supabase.': 'Під’єднай цей сайт до Supabase.',
+  'Add the project URL and public publishable key to the ignored .env file. Then build the site again.': 'Додай URL проєкту та відкритий ключ до файлу .env. Потім знову збери сайт.',
+  'Do not add the service-role key here. The site uses only a public client key and protects data with database policies.': 'Не додавай сюди секретний ключ service-role. Сайт використовує лише відкритий ключ. Правила бази даних захищають дані.',
+  'Loading your learning space…': 'Завантаження твого навчального простору…',
+  'Workspace': 'Робочий простір',
+  'Overview': 'Огляд',
+  'Students': 'Учні',
+  'Word library': 'Словник',
+  'Flashcard packs': 'Набори карток',
+  'My learning': 'Моє навчання',
+  'My packs': 'Мої набори',
+  'My progress': 'Мій прогрес',
+  'Admin': 'Адміністратор',
+  'Student': 'Учень',
+  'Connected': 'Під’єднано',
+  'Your Ukrainian practice': 'Твоя практика української',
+  'Ready for a little practice?': 'Потренуємося?',
+  'Pick a pack and learn a few new words today.': 'Обери набір і вивчи сьогодні кілька нових слів.',
+  'Choose a pack →': 'Обрати набір →',
+  'thank you': 'дякую',
+  'hello': 'привіт',
+  'My packs': 'Мої набори',
+  'Assigned by your admin': 'Призначив адміністратор',
+  'Words known': 'Відомі слова',
+  'Across your packs': 'У всіх твоїх наборах',
+  'Still learning': 'Ще вчу',
+  'Keep them in rotation': 'Повторюй ці слова',
+  'Progress': 'Прогрес',
+  'Words marked as known': 'Слова, які ти знаєш',
+  'Your packs': 'Твої набори',
+  'View all →': 'Переглянути всі →',
+  'No packs yet': 'Наборів поки немає',
+  'Your admin will assign a pack when it is ready.': 'Адміністратор призначить тобі набір, коли він буде готовий.',
+  'words': 'слів',
+  'known': 'відомо',
+  'complete': 'готово',
+  'New pack': 'Новий набір',
+  'Study words →': 'Вивчати слова →',
+  'Your library': 'Твоя бібліотека',
+  'Choose a set and practise at your own pace.': 'Обери набір і навчайся у власному темпі.',
+  'Your learning': 'Твоє навчання',
+  'Words that you know and words that you practise.': 'Слова, які ти знаєш, і слова, які ще вивчаєш.',
+  'Words in your packs': 'Слова у твоїх наборах',
+  'Unique words': 'Унікальні слова',
+  'Known': 'Знаю',
+  'Words you know': 'Слова, які ти знаєш',
+  'Learning': 'Вивчаю',
+  'Words to practise': 'Слова для повторення',
+  'Not started': 'Ще не починав',
+  'New words to meet': 'Нові слова',
+  'Pack progress': 'Прогрес за наборами',
+  'Teacher workspace': 'Простір учителя',
+  'Manage students, words, and flashcard packs.': 'Керуй учнями, словами та наборами карток.',
+  'Create invite code': 'Створити код запрошення',
+  'Learners with access': 'Учні з доступом',
+  'Words ready to teach': 'Слова для вивчення',
+  'Curated sets': 'Підготовлені набори',
+  'Assignments': 'Призначення',
+  'Packs shared with students': 'Набори для учнів',
+  'Your students': 'Твої учні',
+  'Manage students →': 'Керувати учнями →',
+  'Quick actions': 'Швидкі дії',
+  'Add a word': 'Додати слово',
+  'Create a pack': 'Створити набір',
+  'No students yet': 'Учнів поки немає',
+  'Create an invite code and share it with a learner.': 'Створи код запрошення та надішли його учню.',
+  'Assigned packs': 'Призначені набори',
+  'Assign packs': 'Призначити набори',
+  'Class list': 'Список учнів',
+  'Create a code and add a note to identify the learner.': 'Створи код і додай примітку, щоб упізнати учня.',
+  'Invite codes': 'Коди запрошення',
+  'Label and note': 'Ім’я та примітка',
+  'Role': 'Роль',
+  'Status': 'Статус',
+  'Expires': 'Дійсний до',
+  'Redeemed by': 'Використав',
+  'Used': 'Використано',
+  'Unused': 'Не використано',
+  'No expiry': 'Без терміну дії',
+  'Redeemed': 'Активовано',
+  'No invite codes yet.': 'Кодів запрошення поки немає.',
+  'Shared library': 'Спільний словник',
+  'Add translations once. Use them in any pack.': 'Додай переклад один раз і використовуй його в різних наборах.',
+  'Add a word': 'Додати слово',
+  'Example': 'Приклад',
+  'Audio': 'Аудіо',
+  'Audio set': 'Аудіо додано',
+  'Browser voice': 'Голос браузера',
+  'Edit': 'Змінити',
+  'Remove': 'Видалити',
+  'Browser speech works when a Ukrainian voice is available.': 'Озвучення працює, якщо в браузері є український голос.',
+  'Search words': 'Пошук слів',
+  'No words match this search.': 'За цим запитом слів немає.',
+  'Your teaching sets': 'Твої навчальні набори',
+  'Build a set from your word library, then assign it.': 'Створи набір зі словника та признач його учням.',
+  'Use words from your shared library.': 'Використовуй слова зі спільного словника.',
+  'No packs yet': 'Наборів поки немає',
+  'Create a pack to begin.': 'Створи перший набір.',
+  'Close': 'Закрити',
+  'Edit word': 'Змінити слово',
+  'Add Ukrainian text and an English meaning.': 'Додай українське слово та його значення англійською.',
+  'Ukrainian word': 'Українське слово',
+  'English meaning': 'Значення англійською',
+  'Example sentence': 'Приклад речення',
+  'Audio file path or URL': 'Шлях або URL аудіофайлу',
+  'Optional': 'Необов’язково',
+  'Cancel': 'Скасувати',
+  'Save word': 'Зберегти слово',
+  'Create a pack': 'Створити набір',
+  'Choose a name and add words.': 'Вкажи назву та додай слова.',
+  'Pack name': 'Назва набору',
+  'Description': 'Опис',
+  'Level': 'Рівень',
+  'Words in this pack': 'Слова в наборі',
+  'Add words first.': 'Спочатку додай слова.',
+  'Save pack': 'Зберегти набір',
+  'Create an invite code': 'Створити код запрошення',
+  'Add a label so you know who will use this code.': 'Додай ім’я, щоб знати, хто використає цей код.',
+  'Learner label': 'Ім’я учня',
+  'For example: Ana, year 8': 'Наприклад: Анна, 8 клас',
+  'Admin note': 'Примітка адміністратора',
+  'Optional details for you': 'Необов’язкова примітка для тебе',
+  'This code is not tied to an email address.': 'Цей код не прив’язаний до електронної пошти.',
+  'Create code': 'Створити код',
+  'Choose who can study this pack.': 'Обери, хто може вивчати цей набір.',
+  'Create a student and a pack first.': 'Спочатку створи учня та набір.',
+  'Save assignments': 'Зберегти призначення',
+  'Exit study': 'Завершити навчання',
+  'Back to packs': 'До наборів',
+  'Ukrainian → English': 'Українська → англійська',
+  'English → Ukrainian': 'Англійська → українська',
+  'What does this word mean?': 'Що означає це слово?',
+  'Ukrainian': 'Українська',
+  'English': 'Англійська',
+  'Play Ukrainian pronunciation': 'Прослухати вимову українською',
+  'I know this': 'Я це знаю',
+  'Show meaning →': 'Показати значення →',
+  'Already know this · skip →': 'Вже знаю · пропустити →',
+  'Skip for now →': 'Пропустити →',
+  'Study session complete': 'Навчання завершено',
+  'Your progress is saved.': 'Твій прогрес збережено.',
+  'Чудово! Nice work.': 'Чудово! Гарна робота.',
+  'You finished this set. Your progress is saved.': 'Ти завершив цей набір. Твій прогрес збережено.',
+  'Study again': 'Вчити ще раз',
+  'Audio is not available in this browser.': 'У цьому браузері аудіо недоступне.',
+  'This pack does not have any words yet.': 'У цьому наборі ще немає слів.',
+  'Invite code copied.': 'Код запрошення скопійовано.',
+  'Word removed.': 'Слово видалено.',
+  'Word saved.': 'Слово збережено.',
+  'Pack saved.': 'Набір збережено.',
+  'Pack assignments saved.': 'Призначення набору збережено.',
+  'Enter the invite code.': 'Введи код запрошення.',
+  'This code is invalid, expired, or already used. Ask the admin for a new code.': 'Цей код недійсний, прострочений або вже використаний. Попроси адміністратора створити новий код.',
+  'Invite code ready': 'Код запрошення готовий',
+  'Student invite code': 'Код запрошення для учня',
+  'Copy code': 'Скопіювати код',
+  'Done': 'Готово',
+  'Assign': 'Призначити',
+  'Edit pack': 'Змінити набір',
+  'The database does not save the code itself. Copy it now.': 'База даних не зберігає сам код. Скопіюй його зараз.',
+  'Share this code with': 'Надішли цей код учню:',
+  'The database does not save the code itself. Copy it now.': 'База даних не зберігає сам код. Скопіюй його зараз.',
+  'You finished this set. Your progress is saved.': 'Ти завершив цей набір. Твій прогрес збережено.',
+  'Main navigation': 'Головна навігація',
+  'No description': 'Без опису',
+  'For now': 'Поки що',
+  'Example:': 'Наприклад:',
+  'Pack': 'Набір',
+  'Starter': 'Початковий',
+  'student': 'учень',
+  'admin': 'адміністратор',
+  'Invite code ready': 'Код запрошення готовий',
+  'Invite code copied.': 'Код запрошення скопійовано.',
+  'Show meaning': 'Показати значення',
+  'Save assignments': 'Зберегти призначення',
+  'English meaning': 'Значення англійською',
+  'Already joined?': 'Вже маєш обліковий запис?',
+  'The code is not tied to an email address.': 'Код не прив’язаний до електронної пошти.',
+  'Audio file path or URL': 'Шлях або URL аудіофайлу',
+  'Words known': 'Відомі слова',
+  'Words ready to teach': 'Слова для вивчення',
+  'Assignments': 'Призначення',
+  'Set': 'Набір',
+  'Done': 'Готово',
+  'settings': 'налаштування'
+}
 
 let supabase = null
 let session = null
@@ -16,6 +217,50 @@ let study = null
 let alertMessage = ''
 let search = ''
 let lastInviteCode = ''
+let language = localStorage.getItem('slovo-language') === 'uk' ? 'uk' : 'en'
+
+function languageToggle() {
+  return `<button class="language-toggle" type="button" data-action="toggle-language" aria-label="${language === 'en' ? 'Switch to Ukrainian' : 'Перемкнути на англійську'}"><span class="${language === 'en' ? 'selected' : ''}">EN</span><span class="${language === 'uk' ? 'selected' : ''}">УКР</span></button>`
+}
+
+function localize(root = app) {
+  document.documentElement.lang = language
+  if (language === 'en') return
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let node
+  while ((node = walker.nextNode())) {
+    const original = node.nodeValue
+    const trimmed = original.trim()
+    if (!trimmed) continue
+    let translated = translations[trimmed]
+    if (!translated) translated = trimmed
+      .replace(/^Welcome, (.+)$/, 'Вітаємо, $1')
+      .replace(/^Привіт, (.+)! Ready for a little practice\?$/, 'Привіт, $1! Потренуємося?')
+      .replace(/^Share this code with (.+)\. It can be used once\.$/, 'Надішли цей код учню: $1. Його можна використати один раз.')
+      .replace(/^Assign packs to (.+)$/, 'Призначити набори для $1')
+      .replace(/^Assign (.+)$/, 'Призначити: $1')
+      .replace(/^(Admin|Student) · (.+)$/, (_, role, email) => `${role === 'Admin' ? 'Адміністратор' : 'Учень'} · ${email}`)
+      .replace(/^(\d+) packs shared with students$/, '$1 наборів призначено учням')
+      .replace(/^(\d+) words in this pack$/, '$1 слів у наборі')
+      .replace(/^(\d+) students assigned$/, '$1 учнів мають доступ')
+      .replace(/^(\d+) packs$/, '$1 наборів')
+      .replace(/^(\d+) known$/, '$1 відомо')
+      .replace(/^(\d+) of (\d+)$/, '$1 з $2')
+      .replace(/^(\d+) words$/, '$1 слів')
+    if (translated !== trimmed) node.nodeValue = original.replace(trimmed, translated)
+  }
+  root.querySelectorAll('[placeholder], [aria-label]').forEach(element => {
+    for (const attribute of ['placeholder', 'aria-label']) {
+      const value = element.getAttribute(attribute)
+      if (translations[value]) element.setAttribute(attribute, translations[value])
+      else if (value === 'Main navigation') element.setAttribute(attribute, 'Головна навігація')
+      else if (value.startsWith('Play ')) element.setAttribute(attribute, `Відтворити ${value.slice(5)}`)
+    }
+  })
+}
+
+const languageObserver = new MutationObserver(() => localize(document.body))
+languageObserver.observe(document.body, { childList: true, subtree: true })
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
@@ -66,7 +311,7 @@ function setPage(nextPage) {
 function renderLogin() {
   const hasSession = Boolean(session)
   const authText = hasSession ? 'This Google account is ready. Enter the code that the admin shared with you.' : 'Enter the invite code that the admin shared with you. Then continue with Google.'
-  app.innerHTML = `<main class="auth-page"><section class="auth-card"><a class="brand auth-brand" href="./"><span class="brand-mark">S</span><span><span class="brand-name">slovo</span><span class="brand-note">your Ukrainian words</span></span></a><div class="eyebrow">Ukrainian, one word at a time</div><h1>${hasSession ? 'Use your invite code' : 'A new word is a small win.'}</h1><p class="subhead">${authText}</p>${alertMessage ? `<div class="alert-box" role="alert">${esc(alertMessage)}</div>` : ''}<form class="form" data-form="redeem"><div class="field"><label for="invite-code">Invite code</label><input id="invite-code" name="code" autocomplete="one-time-code" placeholder="SL-1234567890ABCDEF12345678" required></div><button class="button" type="submit">${hasSession ? 'Activate account' : 'Continue with Google'} <span>→</span></button></form><div class="auth-divider"><span>Already joined?</span></div><button class="button secondary auth-google" data-action="google-login">${hasSession ? 'Sign out' : 'Sign in with Google'}</button><p class="auth-foot">Your code is not tied to an email. Use the Google account that you want to use for learning.</p></section></main>`
+  app.innerHTML = `<main class="auth-page"><section class="auth-card">${languageToggle()}<a class="brand auth-brand" href="./"><span class="brand-mark">S</span><span><span class="brand-name">slovo</span><span class="brand-note">your Ukrainian words</span></span></a><div class="eyebrow">Ukrainian, one word at a time</div><h1>${hasSession ? 'Use your invite code' : 'A new word is a small win.'}</h1><p class="subhead">${authText}</p>${alertMessage ? `<div class="alert-box" role="alert">${esc(alertMessage)}</div>` : ''}<form class="form" data-form="redeem"><div class="field"><label for="invite-code">Invite code</label><input id="invite-code" name="code" autocomplete="one-time-code" placeholder="SL-1234567890ABCDEF12345678" required></div><button class="button" type="submit">${hasSession ? 'Activate account' : 'Continue with Google'} <span>→</span></button></form><div class="auth-divider"><span>Already joined?</span></div><button class="button secondary auth-google" data-action="google-login">${hasSession ? 'Sign out' : 'Sign in with Google'}</button><p class="auth-foot">Your code is not tied to an email. Use the Google account that you want to use for learning.</p></section></main>`
 }
 
 function renderLoading(message = 'Loading your learning space…') {
@@ -74,7 +319,7 @@ function renderLoading(message = 'Loading your learning space…') {
 }
 
 function renderSetup() {
-  app.innerHTML = `<main class="auth-page"><section class="auth-card"><a class="brand auth-brand" href="./"><span class="brand-mark">S</span><span><span class="brand-name">slovo</span><span class="brand-note">your Ukrainian words</span></span></a><div class="eyebrow">Connection setup</div><h1>Connect this site to Supabase.</h1><p class="subhead">Add the project URL and public publishable key to the ignored .env file. Then build the site again.</p><div class="alert-box">Do not add the service-role key here. The site uses only a public client key and protects data with database policies.</div></section></main>`
+  app.innerHTML = `<main class="auth-page"><section class="auth-card">${languageToggle()}<a class="brand auth-brand" href="./"><span class="brand-mark">S</span><span><span class="brand-name">slovo</span><span class="brand-note">your Ukrainian words</span></span></a><div class="eyebrow">Connection setup</div><h1>Connect this site to Supabase.</h1><p class="subhead">Add the project URL and public publishable key to the ignored .env file. Then build the site again.</p><div class="alert-box">Do not add the service-role key here. The site uses only a public client key and protects data with database policies.</div></section></main>`
 }
 
 async function loadData() {
@@ -173,7 +418,7 @@ function render() {
   }
   const nav = navItems().map(([key, icon, label]) => `<button class="nav-item ${page === key ? 'active' : ''}" data-action="nav" data-page="${key}"><span class="nav-icon">${icon}</span><span>${label}</span></button>`).join('')
   const title = navItems().find(item => item[0] === page)?.[2] || 'My learning'
-  app.innerHTML = `<div class="shell"><aside class="sidebar"><a class="brand" href="./"><span class="brand-mark">S</span><span><span class="brand-name">slovo</span><span class="brand-note">your Ukrainian words</span></span></a><div class="nav-label">Workspace</div><nav class="nav-list" aria-label="Main navigation">${nav}</nav><div class="sidebar-bottom"><div class="user-box"><span class="avatar ${isAdmin() ? 'blue' : 'green'}">${esc(displayName().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase())}</span><div style="min-width:0"><div class="user-name">${esc(displayName())}</div><div class="user-role">${isAdmin() ? 'Admin' : 'Student'} · ${esc(profile.email)}</div></div></div><button class="button secondary logout-button" data-action="sign-out">Sign out</button></div></aside><main class="main"><header class="topbar"><div class="crumb">Workspace <span style="padding:0 7px;color:#c4c8d1">/</span><strong>${esc(title)}</strong></div><div class="top-actions"><span class="demo-badge"><span class="demo-dot" style="background:#35a77c"></span> Connected</span><button class="button small secondary" data-action="sign-out">Sign out</button></div></header><section class="page">${alertMessage ? `<div class="alert-box" role="alert">${esc(alertMessage)}</div>` : ''}${renderPage()}</section></main></div>${renderModal()}`
+  app.innerHTML = `<div class="shell"><aside class="sidebar"><a class="brand" href="./"><span class="brand-mark">S</span><span><span class="brand-name">slovo</span><span class="brand-note">your Ukrainian words</span></span></a><div class="nav-label">Workspace</div><nav class="nav-list" aria-label="Main navigation">${nav}</nav><div class="sidebar-bottom"><div class="user-box"><span class="avatar ${isAdmin() ? 'blue' : 'green'}">${esc(displayName().split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase())}</span><div style="min-width:0"><div class="user-name">${esc(displayName())}</div><div class="user-role">${isAdmin() ? 'Admin' : 'Student'} · ${esc(profile.email)}</div></div></div><button class="button secondary logout-button" data-action="sign-out">Sign out</button></div></aside><main class="main"><header class="topbar"><div class="crumb">Workspace <span style="padding:0 7px;color:#c4c8d1">/</span><strong>${esc(title)}</strong></div><div class="top-actions">${languageToggle()}<span class="demo-badge"><span class="demo-dot" style="background:#35a77c"></span> Connected</span><button class="button small secondary" data-action="sign-out">Sign out</button></div></header><section class="page">${alertMessage ? `<div class="alert-box" role="alert">${esc(alertMessage)}</div>` : ''}${renderPage()}</section></main></div>${renderModal()}`
 }
 
 function renderPage() {
@@ -301,11 +546,11 @@ function renderStudy() {
   }
   const progress = data.progress[word.id]
   const percent = Math.round(study.index / words.length * 100)
-  app.innerHTML = `<main class="study-shell"><div class="study-top"><button class="study-back" data-action="exit-study">← Exit study</button><div class="study-pack"><strong>${esc(pack.title)}</strong><span>${esc(pack.level)} · Ukrainian → English</span></div><span class="study-count">${study.index + 1} of ${words.length}</span></div><div class="study-progress"><span style="width:${percent}%"></span></div><div class="study-content"><div class="study-inner"><div class="study-hint">${study.revealed ? 'English meaning' : 'What does this word mean?'}</div><article class="flashcard"><div class="flash-side">${study.revealed ? 'English' : 'Ukrainian'}</div><div class="flash-word ${study.revealed ? 'translation' : ''}" lang="${study.revealed ? 'en' : 'uk'}">${esc(study.revealed ? word.en : word.ua)}</div>${study.revealed && word.example ? `<p class="flash-example" lang="uk">${esc(word.example)}</p>` : ''}<button class="word-audio" data-action="speak" data-id="${esc(word.id)}" aria-label="Play Ukrainian pronunciation">▶</button></article>${study.revealed ? `<div class="flash-controls"><button class="button ghost" data-action="mark-word" data-status="learning">↻ &nbsp;Still learning</button><button class="button known" data-action="mark-word" data-status="known">✓ &nbsp;I know this</button></div>` : '<button class="button" style="width:100%;margin-top:16px;min-height:48px" data-action="reveal">Show meaning →</button>'}<button class="flip-control" data-action="skip-word">${progress === 'known' ? 'Already know this · skip →' : 'Skip for now →'}</button></div></div></main>`
+  app.innerHTML = `<main class="study-shell"><div class="study-top"><button class="study-back" data-action="exit-study">← Exit study</button><div class="study-pack"><strong>${esc(pack.title)}</strong><span>${esc(pack.level)} · Ukrainian → English</span></div><div class="study-top-actions">${languageToggle()}<span class="study-count">${study.index + 1} of ${words.length}</span></div></div><div class="study-progress"><span style="width:${percent}%"></span></div><div class="study-content"><div class="study-inner"><div class="study-hint">${study.revealed ? 'English meaning' : 'What does this word mean?'}</div><article class="flashcard"><div class="flash-side">${study.revealed ? 'English' : 'Ukrainian'}</div><div class="flash-word ${study.revealed ? 'translation' : ''}" lang="${study.revealed ? 'en' : 'uk'}">${esc(study.revealed ? word.en : word.ua)}</div>${study.revealed && word.example ? `<p class="flash-example" lang="uk">${esc(word.example)}</p>` : ''}<button class="word-audio" data-action="speak" data-id="${esc(word.id)}" aria-label="Play Ukrainian pronunciation">▶</button></article>${study.revealed ? `<div class="flash-controls"><button class="button ghost" data-action="mark-word" data-status="learning">↻ &nbsp;Still learning</button><button class="button known" data-action="mark-word" data-status="known">✓ &nbsp;I know this</button></div>` : '<button class="button" style="width:100%;margin-top:16px;min-height:48px" data-action="reveal">Show meaning →</button>'}<button class="flip-control" data-action="skip-word">${progress === 'known' ? 'Already know this · skip →' : 'Skip for now →'}</button></div></div></main>`
 }
 
 function renderFinish() {
-  app.innerHTML = `<main class="study-shell"><div class="study-top"><button class="study-back" data-action="exit-study">← Back to packs</button><div class="study-pack"><strong>Study session complete</strong><span>Your progress is saved.</span></div><span></span></div><div class="study-content"><div class="study-finish"><div class="finish-icon">🎉</div><h1>Чудово! Nice work.</h1><p>You finished this set. Your progress is saved.</p><div class="toolbar" style="justify-content:center"><button class="button secondary" data-action="exit-study">Back to packs</button><button class="button" data-action="restart-study">Study again</button></div></div></div></main>`
+  app.innerHTML = `<main class="study-shell"><div class="study-top"><button class="study-back" data-action="exit-study">← Back to packs</button><div class="study-pack"><strong>Study session complete</strong><span>Your progress is saved.</span></div>${languageToggle()}</div><div class="study-content"><div class="study-finish"><div class="finish-icon">🎉</div><h1>Чудово! Nice work.</h1><p>You finished this set. Your progress is saved.</p><div class="toolbar" style="justify-content:center"><button class="button secondary" data-action="exit-study">Back to packs</button><button class="button" data-action="restart-study">Study again</button></div></div></div></main>`
 }
 
 function processSession(currentSession) {
@@ -366,6 +611,16 @@ async function reloadData() {
 
 async function handleAction(action, element, event) {
   const id = element.dataset.id
+  if (action === 'toggle-language') {
+    language = language === 'en' ? 'uk' : 'en'
+    localStorage.setItem('slovo-language', language)
+    if (study) {
+      if (study.index >= packWords(data.packs.find(item => item.id === study.packId)).length) renderFinish()
+      else renderStudy()
+    } else render()
+    localize(document.body)
+    return
+  }
   if (action === 'nav') setPage(element.dataset.page)
   if (action === 'google-login') {
     if (session) {
@@ -457,7 +712,8 @@ async function handleAction(action, element, event) {
   }
   if (action === 'delete-word') {
     const word = data.words.find(item => item.id === id)
-    if (word && confirm(`Remove ${word.ua} from the library and all packs?`)) {
+    const removePrompt = language === 'uk' ? `Видалити ${word?.ua} зі словника та всіх наборів?` : `Remove ${word?.ua} from the library and all packs?`
+    if (word && confirm(removePrompt)) {
       const { error } = await supabase.from('words').delete().eq('id', id)
       if (error) showToast(error.message)
       else {
