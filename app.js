@@ -108,6 +108,8 @@ const translations = {
   'Browser voice': 'Голос браузера',
   'Edit': 'Змінити',
   'Remove': 'Видалити',
+  'Record audio': 'Записати аудіо',
+  'Replace audio': 'Перезаписати аудіо',
   'Browser speech works when a Ukrainian voice is available.': 'Озвучення працює, якщо в браузері є український голос.',
   'Search words': 'Пошук слів',
   'No words match this search.': 'За цим запитом слів немає.',
@@ -578,7 +580,7 @@ function renderStudents() {
 function renderWords() {
   const query = search.toLowerCase()
   const words = data.words.filter(word => `${word.ua} ${word.en}`.toLowerCase().includes(query))
-  const rows = words.map(word => `<tr><td><div class="word-row"><button class="word-audio" data-action="speak" data-id="${esc(word.id)}" aria-label="Play ${esc(word.ua)}">▶</button><span class="word-ua" lang="uk">${esc(word.ua)}</span></div></td><td><strong>${esc(word.en)}</strong></td><td>${esc(word.example || '—')}</td><td>${word.audioPath ? 'Audio set' : 'Browser voice'}</td><td><button class="table-action" data-action="edit-word" data-id="${esc(word.id)}">Edit</button><button class="table-action" data-action="delete-word" data-id="${esc(word.id)}">Remove</button></td></tr>`).join('')
+  const rows = words.map(word => `<tr><td><div class="word-row"><button class="word-audio" data-action="speak" data-id="${esc(word.id)}" aria-label="Play ${esc(word.ua)}">▶</button><span class="word-ua" lang="uk">${esc(word.ua)}</span></div></td><td><strong>${esc(word.en)}</strong></td><td>${esc(word.example || '—')}</td><td>${word.audioPath ? 'Audio set' : 'Browser voice'}</td><td><div class="table-actions"><button class="record-word-action" data-action="record-word" data-id="${esc(word.id)}"><span aria-hidden="true">🎙</span> <span>${word.audioPath ? 'Replace audio' : 'Record audio'}</span></button><button class="table-action" data-action="edit-word" data-id="${esc(word.id)}">Edit</button><button class="table-action" data-action="delete-word" data-id="${esc(word.id)}">Remove</button></div></td></tr>`).join('')
   return `<div class="page-head"><div><div class="eyebrow">Shared library</div><h1>Word library</h1><p class="subhead">Add translations once. Use them in any pack.</p></div><button class="button" data-action="new-word">＋ Add a word</button></div><div class="panel"><div class="panel-head"><div><h2>${data.wordCount} words</h2><p>Browser speech works when a Ukrainian voice is available.</p></div><input class="search" data-action="search" type="search" placeholder="Search words" value="${esc(search)}" aria-label="Search words"></div><div class="table-wrap"><table><thead><tr><th>Ukrainian</th><th>English</th><th>Example</th><th>Audio</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="5">No words match this search.</td></tr>'}</tbody></table></div></div>`
 }
 
@@ -894,6 +896,11 @@ async function reloadData() {
 
 async function handleAction(action, element, event) {
   const id = element.dataset.id
+  if (action === 'record-word') {
+    wordForm(data.words.find(word => word.id === id))
+    await startAudioRecording()
+    return
+  }
   if (action === 'record-audio') await startAudioRecording()
   if (action === 'stop-audio') stopAudioRecording()
   if (action === 'toggle-language') {

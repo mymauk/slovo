@@ -168,6 +168,8 @@ td strong { color: var(--ink); font-weight: 700; }
 .table-action { padding: 5px 7px; border: 0; border-radius: 7px; background: transparent; color: var(--blue); font-size: 10px; font-weight: 700; }
 .table-action:hover { background: var(--blue-pale); }
 .table-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.record-word-action { padding: 7px 9px; border: 1px solid #dce4ff; border-radius: 8px; background: var(--blue-pale); color: var(--blue); font-size: 10px; font-weight: 700; white-space: nowrap; }
+.record-word-action:hover { background: #e2e9ff; }
 .danger-action { color: #b65146; }
 .danger-action:hover { background: #fff1ee; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
